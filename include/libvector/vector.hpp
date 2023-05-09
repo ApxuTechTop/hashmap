@@ -1,20 +1,20 @@
 #include <memory>
+#include <cstdint>
 
 namespace tech {
     template<class T, class Allocator = std::allocator<T>> 
     class Vector {
         private:
-        T* vector;
-        size_type count;
-        size_type max_count;
+        T* _items;
+        size_type _count;
+        size_type _capacity;
         constexpr void clean() {
             clear();
-
-            Allocator().deallocate(vector, capacity());
+            Allocator().deallocate(_items, capacity());
         }
-        static size_type init_capacity = 10;
         public:
         /* member types */
+        using size_type = std::size_t
         using value_type = T;
         using reference = value_type&;
         using const_reference = const value_type&;
@@ -24,18 +24,35 @@ namespace tech {
         };
 
         /* constructors */
-        
-        constexpr Vector() noexcept(noexcept(Allocator())) : vector(nullptr) {
-            vector = Allocator().allocate(init_capacity);
-            max_count = init_capacity
-        }
+        constexpr Vector() noexcept(noexcept(Allocator())) : _items(nullptr), _count(0), _capacity(0) {}
+        constexpr Vector(size_type count) : _items(Allocator().allocate(count)), _count(0), _capacity(count) {}
         constexpr Vector(std::initializer_list<T> init) {}
 
         /* rule of 5 */
-        constexpr Vector(const Vector& other) noexcept {}
-        constexpr Vector(Vector&& other) noexcept {}
-        constexpr Vector& operator=(const Vector& other) {}
-        constexpr Vector& operator=(Vector&& other) {}
+        constexpr Vector(const Vector& other) noexcept : _items(Allocator().allocate(other.capacity())), _count(other.size()), _capacity(other.capacity()) {
+            std::uninitialized_copy_n(other.data(), other.size(), _items);
+        }
+        constexpr Vector(Vector&& other) noexcept : _items(other.data()), _count(other.size()), _capacity(other.capacity()) {
+            other._items = nullptr;
+            other._count = 0;
+            other._capacity = 0;
+        }
+        constexpr Vector& operator=(const Vector& other) {
+            clean();
+            _items = Allocator().allocate(other.capacity());
+            _capacity = other.capacity();
+            _count = other.size();
+            std::uninitialized_copy_n(other.data(), other.size(), _items);
+        }
+        constexpr Vector& operator=(Vector&& other) {
+            clean();
+            _items = other.data();
+            _count = other.size();
+            _capacity = other.capacity();
+            other._items = nullptr;
+            other._count = 0;
+            other._capacity = 0;
+        }
         constexpr ~Vector() {clean();}
 
 
@@ -44,37 +61,52 @@ namespace tech {
             if (!(pos < size())) {
                 throw std::out_of_range("Out of range\n");
             }
-            return vector[pos];
+            return _items[pos];
         }
         constexpr reference operator[](size_type pos) {
-            return vector[pos];
+            return _items[pos];
         }
         constexpr reference front() {
-            return vector[0];
+            return _items[0];
         }
         constexpr reference back() {
-            return vector[size()];
+            return _items[size()];
         }
         constexpr pointer data() {
-            return vector;
+            return _items;
         }
 
         /* capacity */
-        [[nodiscard]] constexpr bool empty() const noexcept {return count != 0;}
-        constexpr size_type size() const noexcept {return count;}
-        constexpr void reserve(size_type new_cap) {}
-        constexpr size_type capacity() const noexcept {return max_count;}
+        [[nodiscard]] constexpr bool empty() const noexcept {return _count == 0;}
+        constexpr size_type size() const noexcept {return _count;}
+        constexpr void reserve(size_type new_cap) {
+            if (new_cap < capacity()) {
+                return;
+            }
+            // TODO
+        } // TODO
+        constexpr size_type capacity() const noexcept {return _capacity;}
         constexpr void shrink_to_fit() {}
 
         /* modifiers */
         constexpr void clear() noexcept {
-            std::destroy_n(vector, size());
-            count = 0;
+            std::destroy_n(data(), size());
+            _count = 0;
         }
-        constexpr void push_back(const T& value) {}
-        constexpr void push_back(T&& value) {}
+        constexpr void push_back(const T& value) {
+            if (_count == _capacity) {
+                reserve(_capacity * 2);
+            }
+            _items[_count++] = value; // ?
+        }
+        constexpr void push_back(T&& value) {
+            if (_count == _capacity) {
+                reserve(_capacity * 2);
+            }
+            _items[_count++] = value; // ?
+        }
         constexpr void pop_back() {}
-        constexpr void resize(size_type count, const T& value) {}
+        constexpr void resize(size_type _count, const T& value) {}
 
 
     };
