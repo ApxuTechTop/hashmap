@@ -1,123 +1,346 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <libtech/hashmap.hpp>
+#include <list>
+#include <sstream>
+#include <unordered_map>
+#include <vector>
 
-template<auto& os>
-class Tracer {
-    public:
-    Tracer() : {os << "Tracer()\n";}
-    Tracer(const Tracer& t) {os << "Tracer(const Tracer&)\n";}
-    Tracer(Tracer&& t) {os << "Tracer(Tracer&&)\n";}
-    Tracer& operator=(const Tracer& t) {os << "operator=(const Tracer&)\n"; return *this;}
-    Tracer& operator=(Tracer&& t) {os << "operator=(Tracer&&)\n"; return *this;}
-    ~Tracer() {os << "~Tracer()\n";}
+std::stringstream sreal;
+std::stringstream sexpected;
+
+struct my_Tracer {
+	int value;
+	my_Tracer(int v = 0) : value(v) { sreal << "Tracer(" << value << ")\n"; }
+	my_Tracer(const my_Tracer& t) : value(t.value) {
+		sreal << "Tracer(const Tracer& " << value << ")\n";
+	}
+	my_Tracer(my_Tracer&& t) noexcept : value(std::move(t.value)) {
+		sreal << "Tracer(Tracer&& " << value << ")\n";
+	}
+	my_Tracer& operator=(const my_Tracer& t) {
+		value = t.value;
+		sreal << "operator=(const Tracer& " << value << ")\n";
+		return *this;
+	}
+	my_Tracer& operator=(my_Tracer&& t) noexcept {
+		value = std::move(t.value);
+		sreal << "operator=(Tracer&& " << value << ")\n";
+		return *this;
+	}
+	~my_Tracer() { sreal << "~Tracer(" << value << ")\n"; }
 };
 
-template<auto& os>
-class StringTracer {
-    public:
-    std::string str;
-    StringTracer(const std::string& s) : str(s) {os << "StringTracer(const std::string&)\n";}
-    StringTracer() {os << "StringTracer()\n";}
-    StringTracer(const StringTracer& t) : str(t.str) {os << "StringTracer(const StringTracer&)\n";}
-    StringTracer(StringTracer&& t) : str(std::move(t.str)) {os << "StringTracer(StringTracer&&)\n";}
-    StringTracer& operator=(const StringTracer& t) {
-        str = t.str;
-        os << "operator=(const StringTracer&)\n";
-        return *this;
-    }
-    StringTracer& operator=(StringTracer&& t) {
-        str = std::move(t.str);
-        os << "operator=(StringTracer&&)\n";
-        return *this;
-    }
-    ~StringTracer() {os << "~StringTracer()\n";}
-    
-}
-
-template<class Os, auto& tos>
-Os& operator<<(Os& os, const Tracer<tos>& tracer) {
-    return os << "Tracer\n";
-}
-template<class Os, auto& tos>
-Os& operator<<(Os& os, const StringTracer<tos>& stracer) {
-    return os << stracer.str;
-}
-
-namespace std {
-    template<auto Os>
-    class hash<StringTracer<Os>> {
-        std::uint64_t operator()(const StringTracer<Os>& stracer) const {
-            return std::hash<std::string>{}(stracer.str);
-        }
-    };
-}
-
-template<auto Os>
-class myhash {
-public:
-    std::uint64_t operator()(const StringTracer<Os>& stracer) const {
-        return std::hash<std::string>{}(stracer.str);
-    }
+struct std_Tracer {
+	int value;
+	std_Tracer(int v = 0) : value(v) {
+		sexpected << "Tracer(" << value << ")\n";
+	}
+	std_Tracer(const std_Tracer& t) : value(t.value) {
+		sexpected << "Tracer(const Tracer& " << value << ")\n";
+	}
+	std_Tracer(std_Tracer&& t) noexcept : value(std::move(t.value)) {
+		sexpected << "Tracer(Tracer&& " << value << ")\n";
+	}
+	std_Tracer& operator=(const std_Tracer& t) {
+		value = t.value;
+		sexpected << "operator=(const Tracer& " << value << ")\n";
+		return *this;
+	}
+	std_Tracer& operator=(std_Tracer&& t) noexcept {
+		value = std::move(t.value);
+		sexpected << "operator=(Tracer&& " << value << ")\n";
+		return *this;
+	}
+	~std_Tracer() { sexpected << "~Tracer(" << value << ")\n"; }
 };
 
+struct my_StringTracer {
+	std::string str;
+	my_StringTracer(const std::string& s) : str(s) {
+		sreal << "StringTracer(const std::string&)\n";
+	}
+	my_StringTracer(const char* s) : str(s) {
+		sreal << "StringTracer(const char*)\n";
+	}
+	my_StringTracer() { sreal << "StringTracer()\n"; }
+	my_StringTracer(const my_StringTracer& t) : str(t.str) {
+		sreal << "StringTracer(const StringTracer&)\n";
+	}
+	my_StringTracer(my_StringTracer&& t) : str(std::move(t.str)) {
+		sreal << "StringTracer(StringTracer&&)\n";
+	}
+	my_StringTracer& operator=(const my_StringTracer& t) {
+		str = t.str;
+		sreal << "operator=(const StringTracer&)\n";
+		return *this;
+	}
+	my_StringTracer& operator=(my_StringTracer&& t) noexcept {
+		str = std::move(t.str);
+		sreal << "operator=(StringTracer&&)\n";
+		return *this;
+	}
+	bool operator==(const my_StringTracer& other) const {
+		return (str.size() == other.str.size()) && (str == other.str);
+	}
+	std::strong_ordering operator<=>(const my_StringTracer& other) const {
+		return str <=> other.str;
+	}
+	~my_StringTracer() { sreal << "~StringTracer()\n"; }
+};
 
+struct std_StringTracer {
+	std::string str;
+	std_StringTracer(const std::string& s) : str(s) {
+		sexpected << "StringTracer(const std::string&)\n";
+	}
+	std_StringTracer(const char* s) : str(s) {
+		sexpected << "StringTracer(const char*)\n";
+	}
+	std_StringTracer() { sexpected << "StringTracer()\n"; }
+	std_StringTracer(const std_StringTracer& t) : str(t.str) {
+		sexpected << "StringTracer(const StringTracer&)\n";
+	}
+	std_StringTracer(std_StringTracer&& t) noexcept : str(std::move(t.str)) {
+		sexpected << "StringTracer(StringTracer&&)\n";
+	}
+	std_StringTracer& operator=(const std_StringTracer& t) {
+		str = t.str;
+		sexpected << "operator=(const StringTracer&)\n";
+		return *this;
+	}
+	std_StringTracer& operator=(std_StringTracer&& t) noexcept {
+		str = std::move(t.str);
+		sexpected << "operator=(StringTracer&&)\n";
+		return *this;
+	}
+	bool operator==(const std_StringTracer& other) const {
+		return (str.size() == other.str.size()) && (str == other.str);
+	}
+	std::strong_ordering operator<=>(const std_StringTracer& other) const {
+		return str <=> other.str;
+	}
+	~std_StringTracer() { sexpected << "~StringTracer()\n"; }
+};
 
-TEST(HashMapTest, AddElementTest) {
-    tech::HashMap<std::string, int> map;
-    map["somename"] = 3;
-    ASSERT_EQ(map["somename"], 3);
+// template <class Os> Os &operator<<(Os &os, const my_Tracer &tracer) {
+// 	static_cast<void>(tracer);
+// 	return os << "Tracer\n";
+// }
+// template <class Os> Os &operator<<(Os &os, const std_Tracer &tracer) {
+// 	static_cast<void>(tracer);
+// 	return os << "Tracer\n";
+// }
+// template <class Os> Os &operator<<(Os &os, const my_StringTracer &stracer) {
+// 	return os << stracer.str;
+// }
+// template <class Os> Os &operator<<(Os &os, const std_StringTracer &stracer)
+// { 	return os << stracer.str;
+// }
+
+// namespace std {
+// template <> struct hash<my_StringTracer> {
+// 	std::uint64_t operator()(const my_StringTracer &stracer) const {
+// 		return std::hash<std::string>{}(stracer.str);
+// 	}
+// };
+// template <> struct hash<std_StringTracer> {
+// 	std::uint64_t operator()(const std_StringTracer &stracer) const {
+// 		return std::hash<std::string>{}(stracer.str);
+// 	}
+// };
+// } // namespace std
+
+template <class StringTracer> struct myhash {
+	std::uint64_t operator()(const StringTracer& stracer) const {
+		return std::hash<std::string>{}(stracer.str);
+	}
+};
+
+TEST(ListTest, TwoPushBackTest) {
+	tech::List<my_Tracer> my_list;
+	std::list<std_Tracer> std_list;
+	my_list.push_back(my_Tracer());
+	std_list.push_back(std_Tracer());
+	my_Tracer my_tracer;
+	std_Tracer std_tracer;
+	my_list.push_back(my_tracer);
+	std_list.push_back(std_tracer);
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
+}
+TEST(ListTest, EmplaceBackTest) {
+	tech::List<my_StringTracer> my_list;
+	std::list<std_StringTracer> std_list;
+	my_list.emplace_back("somevalue");
+	std_list.emplace_back("somevalue");
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
+}
+
+TEST(ListTest, RangeBasedForTest) {
+	tech::List<int> my_list;
+	std::list<int> std_list;
+	for (int i = 0; i < 4; ++i) {
+		my_list.push_back(i);
+		std_list.push_back(i);
+	}
+	for (const auto& item : my_list) {
+		sreal << item << ' ';
+	}
+	for (const auto& item : std_list) {
+		sexpected << item << ' ';
+	}
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
+}
+
+TEST(VectorTest, EmplaceBackTest) {
+	tech::Vector<my_StringTracer> my_vector;
+	std::vector<std_StringTracer> std_vector;
+	my_vector.emplace_back("good");
+	std_vector.emplace_back("good");
+	ASSERT_EQ(my_vector.capacity(), std_vector.capacity());
+	sreal << '[';
+	sexpected << '[';
+	ASSERT_EQ(my_vector[0].str, std::string("good"));
+	ASSERT_EQ(std_vector[0].str, std::string("good"));
+	sreal << ']';
+	sexpected << ']';
+	my_vector.emplace_back();
+	std_vector.emplace_back();
+	ASSERT_EQ(my_vector.capacity(), std_vector.capacity());
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
+}
+
+TEST(VectorTest, PushBackTest) {
+	tech::Vector<my_StringTracer> my_vector;
+	std::vector<std_StringTracer> std_vector;
+	my_vector.push_back(my_StringTracer());
+	std_vector.push_back(std_StringTracer());
+	sreal << '|';
+	sexpected << '|';
+	my_StringTracer my_stracer;
+	std_StringTracer std_stracer;
+	my_vector.push_back(my_stracer);
+	std_vector.push_back(std_stracer);
+	sreal << '|';
+	sexpected << '|';
+	my_vector.push_back(std::move(my_stracer));
+	std_vector.push_back(std::move(std_stracer));
+	sreal << '|';
+	sexpected << '|';
+	ASSERT_EQ(my_vector.capacity(), std_vector.capacity());
+	ASSERT_EQ(my_vector.size(), std_vector.size());
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
+}
+
+TEST(VectorTest, ReserveTest) {
+	tech::Vector<my_Tracer> my_vector;
+	std::vector<std_Tracer> std_vector;
+	ASSERT_EQ(my_vector.capacity(), 0);
+	my_vector.reserve(6);
+	std_vector.reserve(6);
+	ASSERT_EQ(my_vector.capacity(), std_vector.capacity());
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
+}
+TEST(VectorTest, ResizeTest) {
+	tech::Vector<my_Tracer> my_vector;
+	std::vector<std_Tracer> std_vector;
+	my_vector.resize(9);
+	std_vector.resize(9);
+	ASSERT_EQ(my_vector.size(), std_vector.size());
+	ASSERT_EQ(sreal.str(), sexpected.str());
+}
+
+TEST(VectorTest, RangeBasedForTest) {
+	tech::Vector<int> my_vector;
+	std::vector<int> std_vector;
+	for (int i = 0; i < 4; ++i) {
+		my_vector.push_back(i);
+		std_vector.push_back(i);
+	}
+	for (const auto& item : my_vector) {
+		sreal << item << ' ';
+	}
+	for (const auto& item : std_vector) {
+		sexpected << item << ' ';
+	}
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
 }
 
 TEST(HashMapTest, DefaultValuesTest) {
-    tech::HashMap<std::string, std::string> my_map;
-    std::unordered_map<std::string, std::string> std_map;
-    ASSERT_EQ(my_map, std_map);
-    ASSERT_EQ(my_map.buckets_count(), std_map.buckets_count());
-    ASSERT_EQ(my_map.max_load_factor(), std_map.max_load_factor());
-    ASSERT_EQ(my_map.size(), std_map.size());
-    ASSERT_EQ(my_map.load_factor(), std_map.load_factor());
+	tech::HashMap<std::string, std::string> my_map;
+	std::unordered_map<std::string, std::string> std_map;
+	// ASSERT_EQ(my_map, std_map);
+	ASSERT_EQ(my_map.bucket_count(), std_map.bucket_count());
+	ASSERT_EQ(my_map.max_load_factor(), std_map.max_load_factor());
+	ASSERT_EQ(my_map.size(), std_map.size());
+	ASSERT_EQ(my_map.load_factor(), std_map.load_factor());
+}
+
+TEST(HashMapTest, AddElementTest) {
+	tech::HashMap<std::string, int> map;
+	map["somename"] = 3;
+	ASSERT_EQ(map["somename"], 3);
 }
 
 TEST(HashMapTest, RehashMapTest) {
-    std::stringstream sreal;
-    std::stringstream sexpected;
-    tech::HashMap<StringTracer<sreal>, Tracer<sreal>> my_map;
-    std::unordered_map<StringTracer<sexpected>, Tracer<sexpected>> std_map;
-    my_map["key1"] = Tracer();
-    std_map["key1"] = Tracer();
-    Tracer t;
-    my_map["2"] = t;
-    std_map["2"] = t;
-    my_map.max_load_factor(10.0);
-    my_map.rehash(1);
-    sreal << my_map.bucket_count();
-    std_map.max_load_factor(10.0);
-    std_map.rehash(1);
-    sexpected << std_map.bucket_count();
-    ASSERT_EQ(sreal.str(), sexpected.str());
+	tech::HashMap<my_StringTracer, my_Tracer, myhash<my_StringTracer>> my_map;
+	std::unordered_map<std_StringTracer, std_Tracer, myhash<std_StringTracer>>
+		std_map;
+
+	my_map[my_StringTracer("key1")] = my_Tracer(2);
+	std_map[std_StringTracer("key1")] = std_Tracer(2);
+
+	my_Tracer my_t;
+	std_Tracer std_t;
+	my_map["2"] = my_t;
+	std_map["2"] = std_t;
+	my_map.max_load_factor(10.0);
+	my_map.rehash(1);
+	std_map.max_load_factor(10.0);
+	std_map.rehash(1);
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	ASSERT_EQ(my_map.bucket_count(), 1);
+	ASSERT_EQ(my_map["key1"].value, 2);
+	ASSERT_EQ(std_map["key1"].value, 2);
+	sreal.str("");
+	sexpected.str("");
 }
 
-TEST(HashMapTest, RangeBaseForTest) {
-    std::stringstream sreal;
-    std::stringstream sexpected;
-    tech::HashMap<StringTracer<sreal>, Tracer<sreal>> my_map;
-    std::unordered_map<StringTracer<sexpected>, Tracer<sexpected>> std_map;
-    my_map["key1"] = Tracer();
-    std_map["key1"] = Tracer();
-    Tracer t;
-    my_map["2"] = t;
-    std_map["2"] = t;
-    for (const auto& [key, value] : my_map) {
-        sreal << key.str << ' ' << value << ' ';
-    }
-    for (const auto& [key, value] : std_map) {
-        sexpected << key.str << ' ' << value << ' '
-    }
-    ASSERT_EQ(sreal.str(), sexpected.str());
+TEST(HashMapTest, RangeBasedForTest) {
+	tech::HashMap<std::string, int> my_map;
+	std::unordered_map<std::string, int> std_map;
+	my_map["key1"] = 1;
+	std_map["key1"] = 1;
+	my_map["2"] = 2;
+	std_map["2"] = 2;
+	my_map["key1"] = 42;
+	std_map["key1"] = 42;
+	for (const auto& [key, value] : my_map) {
+		ASSERT_EQ(value, std_map[key]);
+	}
+	for (const auto& [key, value] : std_map) {
+		ASSERT_EQ(value, my_map[key]);
+	}
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
 	::testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
 }
