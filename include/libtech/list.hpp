@@ -39,7 +39,6 @@ template <class T> class List {
 		using reference = ValueType&;
 		using iterator_category = std::bidirectional_iterator_tag;
 		explicit Iterator(Node* ptr) : current(ptr) {}
-		Iterator(const Iterator& it) = default;
 		reference operator*() { return current->value; }
 		pointer operator->() { return &(current->value); }
 		bool operator==(const Iterator& another) const {

@@ -85,8 +85,7 @@ template <class T, class Allocator = std::allocator<T>> class Vector {
 		using pointer = ValueType*;
 		using reference = ValueType&;
 		using iterator_category = std::contiguous_iterator_tag;
-		Iterator(value_type* ptr) : current(ptr) {}
-		Iterator(const Iterator& it) = default;
+		Iterator(ValueType* ptr) : current(ptr) {}
 		reference operator*() { return *current; }
 		pointer operator->() { return current; }
 		Iterator& operator++() {
@@ -125,6 +124,9 @@ template <class T, class Allocator = std::allocator<T>> class Vector {
 			auto old = *this;
 			old -= n;
 			return old;
+		}
+		bool operator!=(const Iterator& it) const noexcept {
+			return current != it.current;
 		}
 		bool operator==(const Iterator& it) const noexcept {
 			return current == it.current;

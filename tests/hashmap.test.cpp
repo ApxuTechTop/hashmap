@@ -138,18 +138,18 @@ struct std_StringTracer {
 // { 	return os << stracer.str;
 // }
 
-// namespace std {
-// template <> struct hash<my_StringTracer> {
-// 	std::uint64_t operator()(const my_StringTracer &stracer) const {
-// 		return std::hash<std::string>{}(stracer.str);
-// 	}
-// };
-// template <> struct hash<std_StringTracer> {
-// 	std::uint64_t operator()(const std_StringTracer &stracer) const {
-// 		return std::hash<std::string>{}(stracer.str);
-// 	}
-// };
-// } // namespace std
+namespace std {
+template <> struct hash<my_StringTracer> {
+	std::uint64_t operator()(const my_StringTracer &stracer) const {
+		return std::hash<std::string>{}(stracer.str);
+	}
+};
+template <> struct hash<std_StringTracer> {
+	std::uint64_t operator()(const std_StringTracer &stracer) const {
+		return std::hash<std::string>{}(stracer.str);
+	}
+};
+} // namespace std
 
 template <class StringTracer> struct myhash {
 	std::uint64_t operator()(const StringTracer& stracer) const {
@@ -335,6 +335,58 @@ TEST(HashMapTest, RangeBasedForTest) {
 	for (const auto& [key, value] : std_map) {
 		ASSERT_EQ(value, my_map[key]);
 	}
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
+}
+
+TEST(HashMapTest, EmplaceTest) {
+	tech::HashMap<my_StringTracer, my_Tracer> my_map;
+	std::unordered_map<std_StringTracer, std_Tracer> std_map;
+	my_map.emplace("em", 2);
+	std_map.emplace("em", 2);
+	my_map.emplace("kak", 3);
+	std_map.emplace("kak", 3);
+	my_map.emplace("em", 42);
+	std_map.emplace("em", 42);
+	
+	ASSERT_EQ(my_map.at("em").value, std_map.at("em").value);
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
+}
+
+TEST(HashMapTest, FindContainsTest) {
+	tech::HashMap<std::string, int> my_map;
+	std::unordered_map<std::string, int> std_map;
+	my_map["key"] = 5;
+	ASSERT_EQ(my_map.contains("key"), true);
+	ASSERT_EQ(my_map.find("value"), my_map.end());
+	ASSERT_EQ((my_map.find("key"))->second, 5);
+}
+
+TEST(HashMapTest, InsertTest) {
+	tech::HashMap<std::string, int> my_map;
+	my_map.insert({"a", 1});
+	ASSERT_EQ(my_map["a"], 1);
+	std::vector<std::pair<std::string, int>> tmp_vec = {{"b", 2}, {"c", 3}};
+	my_map.insert(tmp_vec.begin(), tmp_vec.end());
+	ASSERT_EQ(my_map["b"], 2);
+	ASSERT_EQ(my_map["c"], 3);
+}
+
+TEST(HashMapTest, IteratorConstructor) {
+	std::unordered_map<std::string, int> std_map = {{"a", 'a'}, {"b", 'b'}, {"c", 3}};
+	tech::HashMap<std::string, int> my_map(std_map.begin(), std_map.end());
+	for (const auto& [key, value] : my_map) {
+		ASSERT_EQ(value, std_map[key]);
+	}
+}
+
+TEST(HashMapTest, InitializerListTest) {
+	tech::HashMap<my_StringTracer, my_Tracer> my_map = {{"a", 'a'}, {"b", 'b'}, {"c", 3}};
+	std::unordered_map<std_StringTracer, std_Tracer> std_map = {{"a", 'a'}, {"b", 'b'}, {"c", 3}};
+
 	ASSERT_EQ(sreal.str(), sexpected.str());
 	sreal.str("");
 	sexpected.str("");
