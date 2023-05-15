@@ -1,7 +1,7 @@
 .PHONY: build format test clean
 build:
-	cmake --preset Release
-	cmake --build build/Release
+	cmake --preset Debug
+	cmake --build build/Debug
 
 format:
 	git ls-files *.cpp | xargs clang-format -i -style=file --verbose
@@ -12,6 +12,7 @@ test:
 
 clean:
 	cmake --build build/Release --target clean
+	cmake --build build/Debug --target clean
 
 all: format build test
 

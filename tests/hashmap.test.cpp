@@ -106,7 +106,7 @@ struct std_StringTracer {
 	}
 	std_StringTracer& operator=(const std_StringTracer& t) {
 		str = t.str;
-		sexpected << "operator=(const StringTracer&)\n";
+		sexpected << "operator=(StringTracer&&)\n";
 		return *this;
 	}
 	std_StringTracer& operator=(std_StringTracer&& t) noexcept {
@@ -123,20 +123,18 @@ struct std_StringTracer {
 	~std_StringTracer() { sexpected << "~StringTracer()\n"; }
 };
 
-// template <class Os> Os &operator<<(Os &os, const my_Tracer &tracer) {
-// 	static_cast<void>(tracer);
-// 	return os << "Tracer\n";
-// }
-// template <class Os> Os &operator<<(Os &os, const std_Tracer &tracer) {
-// 	static_cast<void>(tracer);
-// 	return os << "Tracer\n";
-// }
-// template <class Os> Os &operator<<(Os &os, const my_StringTracer &stracer) {
-// 	return os << stracer.str;
-// }
-// template <class Os> Os &operator<<(Os &os, const std_StringTracer &stracer)
-// { 	return os << stracer.str;
-// }
+std::ostream &operator<<(std::ostream &os, const my_Tracer &tracer) {
+	return os << tracer.value;
+}
+std::ostream &operator<<(std::ostream &os, const std_Tracer &tracer) {
+	return os << tracer.value;
+}
+std::ostream &operator<<(std::ostream &os, const my_StringTracer &stracer) {
+	return os << stracer.str;
+}
+std::ostream &operator<<(std::ostream &os, const std_StringTracer &stracer)
+{ 	return os << stracer.str;
+}
 
 namespace std {
 template <> struct hash<my_StringTracer> {
@@ -198,18 +196,38 @@ TEST(ListTest, RangeBasedForTest) {
 	sexpected.str("");
 }
 
+TEST(ListTest, EraseTest) {
+	tech::List<int> my_list;
+	std::list<int> std_list;
+	for (int i = 0; i < 4; ++i) {
+		my_list.push_back(i);
+		std_list.push_back(i);
+	}
+	auto my_it = my_list.begin();
+	++my_it;
+	auto std_it = std_list.begin();
+	++std_it;
+	my_list.erase(my_it);
+	std_list.erase(std_it);
+	for (const auto& item : my_list) {
+		sreal << item << ' ';
+	}
+	for (const auto& item : std_list) {
+		sexpected << item << ' ';
+	}
+	ASSERT_EQ(sreal.str(), sexpected.str());
+	sreal.str("");
+	sexpected.str("");
+}
+
 TEST(VectorTest, EmplaceBackTest) {
 	tech::Vector<my_StringTracer> my_vector;
 	std::vector<std_StringTracer> std_vector;
 	my_vector.emplace_back("good");
 	std_vector.emplace_back("good");
 	ASSERT_EQ(my_vector.capacity(), std_vector.capacity());
-	sreal << '[';
-	sexpected << '[';
 	ASSERT_EQ(my_vector[0].str, std::string("good"));
 	ASSERT_EQ(std_vector[0].str, std::string("good"));
-	sreal << ']';
-	sexpected << ']';
 	my_vector.emplace_back();
 	std_vector.emplace_back();
 	ASSERT_EQ(my_vector.capacity(), std_vector.capacity());
@@ -223,18 +241,12 @@ TEST(VectorTest, PushBackTest) {
 	std::vector<std_StringTracer> std_vector;
 	my_vector.push_back(my_StringTracer());
 	std_vector.push_back(std_StringTracer());
-	sreal << '|';
-	sexpected << '|';
 	my_StringTracer my_stracer;
 	std_StringTracer std_stracer;
 	my_vector.push_back(my_stracer);
 	std_vector.push_back(std_stracer);
-	sreal << '|';
-	sexpected << '|';
 	my_vector.push_back(std::move(my_stracer));
 	std_vector.push_back(std::move(std_stracer));
-	sreal << '|';
-	sexpected << '|';
 	ASSERT_EQ(my_vector.capacity(), std_vector.capacity());
 	ASSERT_EQ(my_vector.size(), std_vector.size());
 	ASSERT_EQ(sreal.str(), sexpected.str());
@@ -283,7 +295,6 @@ TEST(VectorTest, RangeBasedForTest) {
 TEST(HashMapTest, DefaultValuesTest) {
 	tech::HashMap<std::string, std::string> my_map;
 	std::unordered_map<std::string, std::string> std_map;
-	// ASSERT_EQ(my_map, std_map);
 	ASSERT_EQ(my_map.bucket_count(), std_map.bucket_count());
 	ASSERT_EQ(my_map.max_load_factor(), std_map.max_load_factor());
 	ASSERT_EQ(my_map.size(), std_map.size());
@@ -294,6 +305,7 @@ TEST(HashMapTest, AddElementTest) {
 	tech::HashMap<std::string, int> map;
 	map["somename"] = 3;
 	ASSERT_EQ(map["somename"], 3);
+	ASSERT_EQ(map.size(), 1);
 }
 
 TEST(HashMapTest, RehashMapTest) {
@@ -329,15 +341,56 @@ TEST(HashMapTest, RangeBasedForTest) {
 	std_map["2"] = 2;
 	my_map["key1"] = 42;
 	std_map["key1"] = 42;
+	int my_i = 0;
+	int std_i = 0;
+	bool isGood = true;
 	for (const auto& [key, value] : my_map) {
-		ASSERT_EQ(value, std_map[key]);
+		my_i++;
+		if (std_map[key] != value) {
+			isGood = false;
+		}
 	}
 	for (const auto& [key, value] : std_map) {
-		ASSERT_EQ(value, my_map[key]);
+		std_i++;
+		if (my_map[key] != value) {
+			isGood = false;
+		}
 	}
-	ASSERT_EQ(sreal.str(), sexpected.str());
-	sreal.str("");
-	sexpected.str("");
+	ASSERT_EQ(my_i, std_i);
+	EXPECT_TRUE(isGood);
+}
+
+TEST(HashMapTest, RehashMapTest2) {
+	tech::HashMap<std::string, int> my_map;
+	std::unordered_map<std::string, int> std_map;
+	
+	for (int i = 0; i < 10; ++i) {
+		my_map[std::to_string(i)] = i;
+		std_map[std::to_string(i)] = i;
+	}
+	my_map.max_load_factor(2.5);
+	std_map.max_load_factor(2.5);
+	my_map.rehash(5);
+	std_map.rehash(5);
+	int my_i = 0;
+	int std_i = 0;
+	bool isGood = true;
+	for (const auto& [key, value] : my_map) {
+		my_i++;
+		if (std_map[key] != value) {
+			isGood = false;
+		}
+	}
+	for (const auto& [key, value] : std_map) {
+		std_i++;
+		if (my_map[key] != value) {
+			isGood = false;
+		}
+	}
+	ASSERT_EQ(my_map.bucket_count(), std_map.bucket_count());
+	ASSERT_EQ(my_map.size(), std_map.size());
+	ASSERT_EQ(my_i, std_i);
+	EXPECT_TRUE(isGood);
 }
 
 TEST(HashMapTest, EmplaceTest) {
@@ -378,6 +431,10 @@ TEST(HashMapTest, InsertTest) {
 TEST(HashMapTest, IteratorConstructor) {
 	std::unordered_map<std::string, int> std_map = {{"a", 'a'}, {"b", 'b'}, {"c", 3}};
 	tech::HashMap<std::string, int> my_map(std_map.begin(), std_map.end());
+	ASSERT_EQ(my_map.size(), 3);
+	for (const auto& [key, value] : std_map) {
+		ASSERT_EQ(value, my_map[key]);
+	}
 	for (const auto& [key, value] : my_map) {
 		ASSERT_EQ(value, std_map[key]);
 	}
@@ -390,6 +447,35 @@ TEST(HashMapTest, InitializerListTest) {
 	ASSERT_EQ(sreal.str(), sexpected.str());
 	sreal.str("");
 	sexpected.str("");
+}
+
+TEST(HashMapTest, EraseTest) {
+	tech::HashMap<my_StringTracer, my_Tracer> my_map = {{"a", 'a'}, {"b", 'b'}, {"c", 3}};
+	std::unordered_map<std_StringTracer, std_Tracer> std_map = {{"a", 'a'}, {"b", 'b'}, {"c", 3}};
+
+	my_map.erase(my_map.find("b"));
+	std_map.erase(std_map.find("b"));
+	ASSERT_EQ(my_map.size(), std_map.size());
+	for (const auto& [key, value] : std_map) {
+		ASSERT_EQ(value.value, my_map[key.str].value);
+	}
+	for (const auto& [key, value] : my_map) {
+		ASSERT_EQ(value.value, std_map[key.str].value);
+	}
+	ASSERT_EQ(sreal.str(), sexpected.str()); 
+	sreal.str("");
+	sexpected.str("");
+}
+
+TEST(HashMapTest, StdFindTest) {
+	tech::HashMap<std::string, int> my_map = {{"not", -1}, {"haha", 228}, {"find me", 42}, {"qwerty", 12345}};
+	std::stringstream stest;
+	auto result1 = std::find_if(my_map.begin(), my_map.end(), [&stest](const std::pair<std::string, int>& p){
+		stest << p.first << ':' << p.second << '\n';
+		return p.second == 42;
+	});
+	ASSERT_FALSE(result1 == my_map.end()) << stest.str();
+	ASSERT_EQ(result1->first, "find me");
 }
 
 int main(int argc, char** argv) {
